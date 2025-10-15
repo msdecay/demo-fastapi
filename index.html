@@ -1,0 +1,99 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Web Service Demo (HTML + JS)</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; max-width: 800px; }
+    button { margin: 6px 0; padding: 8px 12px; }
+    pre { background:#f6f6f6; padding:10px; border-radius:6px; }
+    .small { font-size: .9em; color: #666; }
+  </style>
+</head>
+<body>
+  <h1>Web Service Demo (HTML + JS)</h1>
+  <p class="small">No build tools required — just open this file or serve it with a tiny static server.</p>
+
+  <div>
+    <label>Backend base URL: <input id="apiBase" style="width:60%" value="http://localhost:8000" /></label>
+  </div>
+
+  <hr/>
+
+  <div>
+    <button id="btnRoot">GET / (health)</button>
+    <button id="btnItems">GET /items</button>
+    <pre id="outRoot"></pre>
+  </div>
+
+  <hr/>
+
+  <div>
+    <h3>Login (demo)</h3>
+    <label>Username: <input id="username" value="student" /></label>
+    <label>Password: <input id="password" value="demo" type="password" /></label>
+    <div>
+      <button id="btnLogin">POST /login</button>
+      <div>Token: <span id="tokenShort">(no token)</span></div>
+    </div>
+    <div style="margin-top:8px;">
+      <button id="btnProtected">GET /protected (requires token)</button>
+      <pre id="outProtected"></pre>
+    </div>
+  </div>
+
+  <script>
+    const outRoot = document.getElementById('outRoot');
+    const outProtected = document.getElementById('outProtected');
+    const tokenShort = document.getElementById('tokenShort');
+
+    function apiBase() { return document.getElementById('apiBase').value.trim().replace(/\/+$/,''); }
+
+    async function call(path, opts = {}) {
+      const url = apiBase() + path;
+      const res = await fetch(url, opts);
+      const text = await res.text();
+      let parsed;
+      try { parsed = JSON.parse(text); }
+      catch(e){ parsed = text; }
+      return { status: res.status, body: parsed };
+    }
+
+    document.getElementById('btnRoot').onclick = async () => {
+      outRoot.textContent = "Loading...";
+      const r = await call('/');
+      outRoot.textContent = JSON.stringify(r, null, 2);
+    };
+
+    document.getElementById('btnItems').onclick = async () => {
+      outRoot.textContent = "Loading items...";
+      const r = await call('/items');
+      outRoot.textContent = JSON.stringify(r, null, 2);
+    };
+
+    let token = '';
+    document.getElementById('btnLogin').onclick = async () => {
+      const username = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
+      const r = await call('/login', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({username, password})
+      });
+      if (r.status === 200 && r.body && r.body.access_token) {
+        token = r.body.access_token;
+        tokenShort.textContent = token.slice(0,40) + '...';
+      } else {
+        tokenShort.textContent = '(login failed) ' + JSON.stringify(r.body);
+      }
+    };
+
+    document.getElementById('btnProtected').onclick = async () => {
+      outProtected.textContent = "Calling protected...";
+      const headers = token ? {'Authorization': 'Bearer ' + token} : {};
+      const r = await call('/protected', { headers });
+      outProtected.textContent = JSON.stringify(r, null, 2);
+    };
+  </script>
+</body>
+</html>
