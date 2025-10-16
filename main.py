@@ -4,10 +4,12 @@ from jose import jwt
 from pydantic import BaseModel
 from passlib.context import CryptContext
 import os
-from typing import Optional, Dict
+from typing import Optional, Dict, List
 from datetime import datetime, timedelta
+from dotenv import load_dotenv
 
-# --- Configuration ---
+load_dotenv()
+
 SECRET = os.getenv("JWT_SECRET", "dev-secret")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
@@ -17,7 +19,8 @@ app = FastAPI()
 origins = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
-    "https://your-frontend.vercel.app"  # replace with your deployed frontend URL later
+    "https://demo-fastapi-slc2.onrender.com",
+    # add your frontend URL if hosted elsewhere
 ]
 
 app.add_middleware(
@@ -28,10 +31,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- User management setup ---
+# === Password hashing setup ===
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
-users_db: Dict[str, Dict] = {}  # in-memory user store
 
+# === In-memory databases ===
+users_db: Dict[str, Dict] = {}
+items_db: List[Dict] = [
+    {"id": 1, "name": "apple", "owner": "system"},
+    {"id": 2, "name": "banana", "owner": "system"},
+]
+
+# === Models ===
 class RegisterIn(BaseModel):
     username: str
     password: str
@@ -40,6 +50,10 @@ class LoginIn(BaseModel):
     username: str
     password: str
 
+class ItemIn(BaseModel):
+    name: str
+
+# === Auth helpers ===
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
     expire = datetime.utcnow() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
@@ -52,14 +66,21 @@ def get_password_hash(password: str) -> str:
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
-# --- Routes ---
+def verify_token(authorization: Optional[str] = Header(None, alias="Authorization")):
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Missing Authorization header")
+    scheme, _, token = authorization.partition(" ")
+    if scheme.lower() != "bearer":
+        raise HTTPException(status_code=401, detail="Invalid auth scheme")
+    try:
+        return jwt.decode(token, SECRET, algorithms=[ALGORITHM])
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+# === Routes ===
 @app.get("/")
 def root():
     return {"message": "Demo FastAPI service running"}
-
-@app.get("/items")
-def get_items():
-    return [{"id": 1, "name": "apple"}, {"id": 2, "name": "banana"}]
 
 @app.post("/register")
 def register(payload: RegisterIn):
@@ -76,17 +97,18 @@ def login(payload: LoginIn):
     token = create_access_token({"sub": payload.username})
     return {"access_token": token, "token_type": "bearer"}
 
-def verify_token(authorization: Optional[str] = Header(None, alias="Authorization")):
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Missing Authorization header")
-    scheme, _, token = authorization.partition(" ")
-    if scheme.lower() != "bearer":
-        raise HTTPException(status_code=401, detail="Invalid auth scheme")
-    try:
-        return jwt.decode(token, SECRET, algorithms=[ALGORITHM])
-    except Exception:
-        raise HTTPException(status_code=401, detail="Invalid token")
+@app.post("/add_item")
+def add_item(payload: ItemIn, token_data=Depends(verify_token)):
+    owner = token_data.get("sub", "unknown")
+    new_id = len(items_db) + 1
+    new_item = {"id": new_id, "name": payload.name, "owner": owner}
+    items_db.append(new_item)
+    return {"msg": f"Item '{payload.name}' added successfully by {owner}", "item": new_item}
+
+@app.get("/items")
+def get_items():
+    return items_db
 
 @app.get("/protected")
-def protected(payload=Depends(verify_token)):
-    return {"message": f"Hello {payload.get('sub')}, you accessed a protected route"}
+def protected(token_data=Depends(verify_token)):
+    return {"message": f"Hello {token_data.get('sub')}, you accessed a protected route"}
