@@ -27,7 +27,7 @@
   </div>
 
   <hr/>
-  
+
   <hr/>
   <div>
     <h3>Register (create a new user)</h3>
@@ -44,7 +44,7 @@
       <span id="createDemoStatus"></span>
     </div>
   </div>
-  
+
   <div>
     <h3>Login (demo)</h3>
     <label>Username: <input id="username" value="student" /></label>
@@ -111,6 +111,49 @@
       const r = await call('/protected', { headers });
       outProtected.textContent = JSON.stringify(r, null, 2);
     };
+    /* --- paste below your existing script handlers, inside same <script> block --- */
+
+    // Register a new user via /register
+    document.getElementById('btnRegister').onclick = async () => {
+      const username = document.getElementById('regUsername').value.trim();
+      const password = document.getElementById('regPassword').value;
+      const statusEl = document.getElementById('regStatus');
+      if (!username || !password) {
+        statusEl.textContent = "username and password required";
+        return;
+      }
+      statusEl.textContent = "Registering...";
+      try {
+        const res = await fetch(apiBase() + '/register', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({username, password})
+        });
+        const body = await res.json().catch(()=>null);
+        if (res.ok) {
+          statusEl.textContent = "Registered ✓ — now login";
+        } else {
+          statusEl.textContent = "Register failed: " + (body?.detail || JSON.stringify(body) || res.status);
+        }
+      } catch (err) {
+        statusEl.textContent = "Network error: " + err.message;
+      }
+    };
+
+    // Create demo user convenience endpoint
+    document.getElementById('btnCreateDemo').onclick = async () => {
+      const s = document.getElementById('createDemoStatus');
+      s.textContent = "Creating demo user...";
+      try {
+        const r = await fetch(apiBase() + '/create-demo-user');
+        const body = await r.json().catch(()=>null);
+        if (r.ok) s.textContent = `Created demo user ${body?.username || ''}`;
+        else s.textContent = "Error: " + (body?.detail || JSON.stringify(body) || r.status);
+      } catch (e) {
+        s.textContent = "Network error: " + e.message;
+      }
+    };
+
   </script>
 </body>
 </html>
