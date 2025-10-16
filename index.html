@@ -17,6 +17,14 @@
   <div>
     <label>Backend base URL: <input id="apiBase" style="width:60%" value="http://localhost:8000" /></label>
   </div>
+  
+  <hr/>
+  <div>
+    <h3>Add Item</h3>
+    <label>Item name: <input id="itemName" /></label>
+    <button id="btnAddItem">Add</button>
+    <span id="addStatus"></span>
+  </div>
 
   <hr/>
 
@@ -36,12 +44,6 @@
     <div>
       <button id="btnRegister">Register</button>
       <span id="regStatus"></span>
-    </div>
-
-    <h4>Quick demo helper</h4>
-    <div>
-      <button id="btnCreateDemo">Create demo user (student/demo)</button>
-      <span id="createDemoStatus"></span>
     </div>
   </div>
 
@@ -63,7 +65,7 @@
     const outRoot = document.getElementById('outRoot');
     const outProtected = document.getElementById('outProtected');
     const tokenShort = document.getElementById('tokenShort');
-
+    
     function apiBase() { return document.getElementById('apiBase').value.trim().replace(/\/+$/,''); }
 
     async function call(path, opts = {}) {
@@ -76,6 +78,7 @@
       return { status: res.status, body: parsed };
     }
 
+    /* Basic endpoints */
     document.getElementById('btnRoot').onclick = async () => {
       outRoot.textContent = "Loading...";
       const r = await call('/');
@@ -88,32 +91,43 @@
       outRoot.textContent = JSON.stringify(r, null, 2);
     };
 
+    /* token stored here (shared across handlers) */
     let token = '';
+
+    /* Login */
     document.getElementById('btnLogin').onclick = async () => {
       const username = document.getElementById('username').value;
       const password = document.getElementById('password').value;
-      const r = await call('/login', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({username, password})
-      });
-      if (r.status === 200 && r.body && r.body.access_token) {
-        token = r.body.access_token;
-        tokenShort.textContent = token.slice(0,40) + '...';
-      } else {
-        tokenShort.textContent = '(login failed) ' + JSON.stringify(r.body);
+      tokenShort.textContent = 'Logging in...';
+      try {
+        const r = await call('/login', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({username, password})
+        });
+        if (r.status === 200 && r.body && r.body.access_token) {
+          token = r.body.access_token;
+          tokenShort.textContent = token.slice(0,40) + '...';
+        } else {
+          token = '';
+          tokenShort.textContent = '(login failed) ' + JSON.stringify(r.body);
+        }
+      } catch (err) {
+        token = '';
+        tokenShort.textContent = 'Network error';
+        console.error(err);
       }
     };
 
+    /* Protected */
     document.getElementById('btnProtected').onclick = async () => {
       outProtected.textContent = "Calling protected...";
       const headers = token ? {'Authorization': 'Bearer ' + token} : {};
       const r = await call('/protected', { headers });
       outProtected.textContent = JSON.stringify(r, null, 2);
     };
-    /* --- paste below your existing script handlers, inside same <script> block --- */
 
-    // Register a new user via /register
+    /* Register */
     document.getElementById('btnRegister').onclick = async () => {
       const username = document.getElementById('regUsername').value.trim();
       const password = document.getElementById('regPassword').value;
@@ -133,22 +147,41 @@
         if (res.ok) {
           statusEl.textContent = "Registered ✓ — now login";
         } else {
-          statusEl.textContent = "Register failed: " + (body?.detail || JSON.stringify(body) || res.status);
+          statusEl.textContent = "Register failed: " + (body?.detail || JSON.stringify(body));
         }
       } catch (err) {
         statusEl.textContent = "Network error: " + err.message;
       }
     };
 
-    // Create demo user convenience endpoint
-    document.getElementById('btnCreateDemo').onclick = async () => {
-      const s = document.getElementById('createDemoStatus');
-      s.textContent = "Creating demo user...";
+    /* Add Item (uses the token variable above) */
+    document.getElementById('btnAddItem').onclick = async () => {
+      const name = document.getElementById('itemName').value.trim();
+      const s = document.getElementById('addStatus');
+      if (!name) {
+        s.textContent = "Item name required.";
+        return;
+      }
+      if (!token) {
+        s.textContent = "Login first to get a token.";
+        return;
+      }
+      s.textContent = "Adding item...";
       try {
-        const r = await fetch(apiBase() + '/create-demo-user');
+        const r = await fetch(apiBase() + '/add_item', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + token
+          },
+          body: JSON.stringify({name})
+        });
         const body = await r.json().catch(()=>null);
-        if (r.ok) s.textContent = `Created demo user ${body?.username || ''}`;
-        else s.textContent = "Error: " + (body?.detail || JSON.stringify(body) || r.status);
+        if (r.ok) {
+          s.textContent = "✅ " + (body?.msg || 'Item added');
+        } else {
+          s.textContent = "❌ Error: " + (body?.detail || JSON.stringify(body));
+        }
       } catch (e) {
         s.textContent = "Network error: " + e.message;
       }
