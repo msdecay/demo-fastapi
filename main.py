@@ -51,10 +51,10 @@ def login(payload: LoginIn):
     token = create_access_token({"sub": payload.username})
     return {"access_token": token, "token_type": "bearer"}
 
-def verify_token(auth_header: Optional[str] = Header(None)):
-    if not auth_header:
+def verify_token(authorization: Optional[str] = Header(None, alias="Authorization")):
+    if not authorization:
         raise HTTPException(status_code=401, detail="Missing Authorization header")
-    scheme, _, token = auth_header.partition(" ")
+    scheme, _, token = authorization.partition(" ")
     if scheme.lower() != "bearer":
         raise HTTPException(status_code=401, detail="Invalid auth scheme")
     try:
