@@ -12,7 +12,7 @@
 </head>
 <body>
   <h1>Web Service Demo (HTML)</h1>
-  <p class="small">No build tools required — just open this file or serve it with a tiny static server.</p>
+  <p class="small">input gateway</p>
 
   <div>
     <label>Backend base URL: <input id="apiBase" style="width:60%" value="http://localhost:8000" /></label>
@@ -27,7 +27,24 @@
   </div>
 
   <hr/>
+  
+  <hr/>
+  <div>
+    <h3>Register (create a new user)</h3>
+    <label>New username: <input id="regUsername" /></label>
+    <label>New password: <input id="regPassword" type="password" /></label>
+    <div>
+      <button id="btnRegister">Register</button>
+      <span id="regStatus"></span>
+    </div>
 
+    <h4>Quick demo helper</h4>
+    <div>
+      <button id="btnCreateDemo">Create demo user (student/demo)</button>
+      <span id="createDemoStatus"></span>
+    </div>
+  </div>
+  
   <div>
     <h3>Login (demo)</h3>
     <label>Username: <input id="username" value="student" /></label>
