@@ -1,72 +1,215 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Web Service Demo (HTML)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>API Control Panel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
   <style>
-    body { font-family: Arial, sans-serif; padding: 20px; max-width: 800px; }
-    button { margin: 6px 0; padding: 8px 12px; }
-    pre { background:#f6f6f6; padding:10px; border-radius:6px; }
-    .small { font-size: .9em; color: #666; }
+    :root {
+      --bg-color: #f8f9fa;
+      --card-bg: #ffffff;
+      --primary-color: #007bff;
+      --primary-hover: #0056b3;
+      --text-color: #343a40;
+      --muted-color: #6c757d;
+      --border-color: #dee2e6;
+      --success-color: #28a745;
+      --error-color: #dc3545;
+      --code-bg: #e9ecef;
+      --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      padding: 20px;
+      line-height: 1.6;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 24px;
+    }
+    .card {
+      background-color: var(--card-bg);
+      border-radius: 8px;
+      padding: 24px;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border-color);
+    }
+    h1, h2 {
+      margin-bottom: 16px;
+      font-weight: 700;
+    }
+    h1 {
+      font-size: 2em;
+      text-align: center;
+      color: var(--primary-color);
+    }
+    h2 {
+      font-size: 1.5em;
+      border-bottom: 2px solid var(--border-color);
+      padding-bottom: 8px;
+    }
+    .form-group {
+      margin-bottom: 16px;
+    }
+    label {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: 500;
+    }
+    input[type="text"],
+    input[type="password"] {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      font-size: 1rem;
+    }
+    input:focus {
+      outline: none;
+      border-color: var(--primary-color);
+      box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+    }
+    button {
+      background-color: var(--primary-color);
+      color: white;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 4px;
+      font-size: 1rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+    }
+    button:hover {
+      background-color: var(--primary-hover);
+    }
+    pre {
+      background-color: var(--code-bg);
+      padding: 12px;
+      border-radius: 6px;
+      white-space: pre-wrap;
+      word-break: break-all;
+      font-family: monospace;
+      margin-top: 10px;
+      min-height: 50px;
+    }
+    .status {
+      display: inline-block;
+      margin-left: 10px;
+      font-weight: 500;
+    }
+    .status.success { color: var(--success-color); }
+    .status.error { color: var(--error-color); }
+    .token-display {
+      margin-top: 12px;
+      word-break: break-all;
+      font-size: 0.9em;
+      color: var(--muted-color);
+    }
+    .token-display b { color: var(--text-color); }
+    .grid-2 {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+    }
   </style>
 </head>
 <body>
-  <h1>Web Service Demo (HTML)</h1>
-  <p class="small">input gateway</p>
+  <div class="container">
+    <header class="card">
+      <h1>API Control Panel</h1>
+      <div class="form-group">
+        <label for="apiBase">Backend API Base URL:</label>
+        <input id="apiBase" value="https://demo-fastapi-slc2.onrender.com">
+      </div>
+    </header>
 
-  <div>
-    <label>Backend base URL: <input id="apiBase" style="width:60%" value="http://localhost:8000" /></label>
-  </div>
-  
-  <hr/>
-  <div>
-    <h3>Add Item</h3>
-    <label>Item name: <input id="itemName" /></label>
-    <button id="btnAddItem">Add</button>
-    <span id="addStatus"></span>
-  </div>
-
-  <hr/>
-
-  <div>
-    <button id="btnRoot">GET / (health)</button>
-    <button id="btnItems">GET /items</button>
-    <pre id="outRoot"></pre>
-  </div>
-
-  <hr/>
-
-  <hr/>
-  <div>
-    <h3>Register (create a new user)</h3>
-    <label>New username: <input id="regUsername" /></label>
-    <label>New password: <input id="regPassword" type="password" /></label>
-    <div>
-      <button id="btnRegister">Register</button>
-      <span id="regStatus"></span>
+    <div class="card">
+        <h2>Authentication</h2>
+        <div class="grid-2">
+            <div>
+                <h3>Register User</h3>
+                <div class="form-group">
+                    <label for="regUsername">Username</label>
+                    <input id="regUsername" placeholder="choose a username">
+                </div>
+                <div class="form-group">
+                    <label for="regPassword">Password</label>
+                    <input id="regPassword" type="password" placeholder="choose a password">
+                </div>
+                <button id="btnRegister">Register</button>
+                <span id="regStatus" class="status"></span>
+            </div>
+            <div>
+                <h3>Login</h3>
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input id="username" value="student">
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input id="password" value="demo" type="password">
+                </div>
+                <button id="btnLogin">Login</button>
+                <div id="tokenShort" class="token-display"><b>Token:</b> (not logged in)</div>
+            </div>
+        </div>
     </div>
-  </div>
 
-  <div>
-    <h3>Login (demo)</h3>
-    <label>Username: <input id="username" value="student" /></label>
-    <label>Password: <input id="password" value="demo" type="password" /></label>
-    <div>
-      <button id="btnLogin">POST /login</button>
-      <div>Token: <span id="tokenShort">(no token)</span></div>
+    <div class="card">
+      <h2>API Interaction</h2>
+       <div class="grid-2">
+           <div>
+                <h3>Add New Item (Requires Login)</h3>
+                <div class="form-group">
+                    <label for="itemName">Item Name</label>
+                    <input id="itemName" placeholder="e.g., orange">
+                </div>
+                <button id="btnAddItem">Add Item</button>
+                <span id="addStatus" class="status"></span>
+           </div>
+           <div>
+                <h3>Test Protected Route</h3>
+                <button id="btnProtected">GET /protected</button>
+                <pre id="outProtected">Click to test...</pre>
+           </div>
+        </div>
     </div>
-    <div style="margin-top:8px;">
-      <button id="btnProtected">GET /protected (requires token)</button>
-      <pre id="outProtected"></pre>
+
+    <div class="card">
+      <h2>General Endpoints</h2>
+      <button id="btnRoot">GET / (health check)</button>
+      <button id="btnItems">GET /items</button>
+      <pre id="outRoot">Click an endpoint to see the response...</pre>
     </div>
+
   </div>
 
   <script>
     const outRoot = document.getElementById('outRoot');
     const outProtected = document.getElementById('outProtected');
     const tokenShort = document.getElementById('tokenShort');
-    
+
     function apiBase() { return document.getElementById('apiBase').value.trim().replace(/\/+$/,''); }
+
+    // Helper to update status elements with text and color
+    function updateStatus(element, message, type) {
+        element.textContent = message;
+        element.className = `status ${type}`; // type can be 'success' or 'error'
+    }
 
     async function call(path, opts = {}) {
       const url = apiBase() + path;
@@ -87,7 +230,9 @@
 
     document.getElementById('btnItems').onclick = async () => {
       outRoot.textContent = "Loading items...";
-      const r = await call('/items');
+      // Add the Authorization header if the user is logged in (token exists)
+      const headers = token ? { 'Authorization': 'Bearer ' + token } : {};
+      const r = await call('/items', { headers }); // <-- Pass the headers here
       outRoot.textContent = JSON.stringify(r, null, 2);
     };
 
@@ -98,7 +243,7 @@
     document.getElementById('btnLogin').onclick = async () => {
       const username = document.getElementById('username').value;
       const password = document.getElementById('password').value;
-      tokenShort.textContent = 'Logging in...';
+      tokenShort.innerHTML = '<b>Token:</b> Logging in...';
       try {
         const r = await call('/login', {
           method: 'POST',
@@ -107,22 +252,26 @@
         });
         if (r.status === 200 && r.body && r.body.access_token) {
           token = r.body.access_token;
-          tokenShort.textContent = token.slice(0,40) + '...';
+          tokenShort.innerHTML = `<b>Token:</b> <span style="color:var(--success-color)">✓ Logged in</span> (${token.slice(0,30)}...)`;
         } else {
           token = '';
-          tokenShort.textContent = '(login failed) ' + JSON.stringify(r.body);
+          tokenShort.innerHTML = `<b>Token:</b> <span style="color:var(--error-color)">Login failed</span>`;
         }
       } catch (err) {
         token = '';
-        tokenShort.textContent = 'Network error';
+        tokenShort.innerHTML = '<b>Token:</b> <span style="color:var(--error-color)">Network error</span>';
         console.error(err);
       }
     };
 
     /* Protected */
     document.getElementById('btnProtected').onclick = async () => {
-      outProtected.textContent = "Calling protected...";
-      const headers = token ? {'Authorization': 'Bearer ' + token} : {};
+      outProtected.textContent = "Calling protected route...";
+      if (!token) {
+        outProtected.textContent = JSON.stringify({ status: 401, body: { detail: "You must login first to get a token." } }, null, 2);
+        return;
+      }
+      const headers = { 'Authorization': 'Bearer ' + token };
       const r = await call('/protected', { headers });
       outProtected.textContent = JSON.stringify(r, null, 2);
     };
@@ -133,10 +282,10 @@
       const password = document.getElementById('regPassword').value;
       const statusEl = document.getElementById('regStatus');
       if (!username || !password) {
-        statusEl.textContent = "username and password required";
+        updateStatus(statusEl, "Username and password required", "error");
         return;
       }
-      statusEl.textContent = "Registering...";
+      updateStatus(statusEl, "Registering...", "");
       try {
         const res = await fetch(apiBase() + '/register', {
           method: 'POST',
@@ -145,12 +294,12 @@
         });
         const body = await res.json().catch(()=>null);
         if (res.ok) {
-          statusEl.textContent = "Registered ✓ — now login";
+          updateStatus(statusEl, "Registered ✓ — now login", "success");
         } else {
-          statusEl.textContent = "Register failed: " + (body?.detail || JSON.stringify(body));
+          updateStatus(statusEl, "Register failed: " + (body?.detail || JSON.stringify(body)), "error");
         }
       } catch (err) {
-        statusEl.textContent = "Network error: " + err.message;
+        updateStatus(statusEl, "Network error: " + err.message, "error");
       }
     };
 
@@ -159,14 +308,14 @@
       const name = document.getElementById('itemName').value.trim();
       const s = document.getElementById('addStatus');
       if (!name) {
-        s.textContent = "Item name required.";
+        updateStatus(s, "Item name required.", "error");
         return;
       }
       if (!token) {
-        s.textContent = "Login first to get a token.";
+        updateStatus(s, "Login first to get a token.", "error");
         return;
       }
-      s.textContent = "Adding item...";
+      updateStatus(s, "Adding item...", "");
       try {
         const r = await fetch(apiBase() + '/add_item', {
           method: 'POST',
@@ -178,15 +327,14 @@
         });
         const body = await r.json().catch(()=>null);
         if (r.ok) {
-          s.textContent = "✅ " + (body?.msg || 'Item added');
+          updateStatus(s, "✓ " + (body?.msg || 'Item added'), "success");
         } else {
-          s.textContent = "❌ Error: " + (body?.detail || JSON.stringify(body));
+          updateStatus(s, "✗ Error: " + (body?.detail || JSON.stringify(body)), "error");
         }
       } catch (e) {
-        s.textContent = "Network error: " + e.message;
+        updateStatus(s, "Network error: " + e.message, "error");
       }
     };
-
   </script>
 </body>
 </html>
