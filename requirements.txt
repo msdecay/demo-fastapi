@@ -2,4 +2,4 @@ fastapi
 uvicorn[standard]
 python-jose[cryptography]
 python-dotenv
-jinja2
+passlib[bcrypt]
