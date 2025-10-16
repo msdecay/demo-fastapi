@@ -25,7 +25,7 @@ origins = [
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"],  # Allowing all for simplicity, but you can restrict it to your frontend URL
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -41,17 +41,21 @@ items_db: List[Dict] = [
     {"id": 2, "name": "banana", "owner": "system"},
 ]
 
+
 # === Models ===
 class RegisterIn(BaseModel):
     username: str
     password: str
 
+
 class LoginIn(BaseModel):
     username: str
     password: str
 
+
 class ItemIn(BaseModel):
     name: str
+
 
 # === Auth helpers ===
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
@@ -60,11 +64,14 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET, algorithm=ALGORITHM)
 
+
 def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
 
+
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
+
 
 def verify_token(authorization: Optional[str] = Header(None, alias="Authorization")):
     if not authorization:
@@ -77,10 +84,12 @@ def verify_token(authorization: Optional[str] = Header(None, alias="Authorizatio
     except Exception:
         raise HTTPException(status_code=401, detail="Invalid token")
 
+
 # === Routes ===
 @app.get("/")
 def root():
     return {"message": "Demo FastAPI service running"}
+
 
 @app.post("/register")
 def register(payload: RegisterIn):
@@ -88,6 +97,7 @@ def register(payload: RegisterIn):
         raise HTTPException(status_code=400, detail="User already exists")
     users_db[payload.username] = {"hashed_password": get_password_hash(payload.password)}
     return {"msg": f"User '{payload.username}' registered successfully"}
+
 
 @app.post("/login")
 def login(payload: LoginIn):
@@ -97,6 +107,7 @@ def login(payload: LoginIn):
     token = create_access_token({"sub": payload.username})
     return {"access_token": token, "token_type": "bearer"}
 
+
 @app.post("/add_item")
 def add_item(payload: ItemIn, token_data=Depends(verify_token)):
     owner = token_data.get("sub", "unknown")
@@ -105,9 +116,23 @@ def add_item(payload: ItemIn, token_data=Depends(verify_token)):
     items_db.append(new_item)
     return {"msg": f"Item '{payload.name}' added successfully by {owner}", "item": new_item}
 
+
+# === MODIFIED ROUTE FOR AUTHORIZATION ===
 @app.get("/items")
-def get_items():
-    return items_db
+def get_items(token_data=Depends(verify_token)):
+    # 1. Get the current user's identity from the token.
+    #    The 'sub' (subject) claim holds the username.
+    current_user = token_data.get("sub")
+    if not current_user:
+        raise HTTPException(status_code=403, detail="Could not validate credentials")
+
+    # 2. Filter the database to return only items owned by the
+    #    current user OR items owned by the "system".
+    #    This is the core of the authorization logic.
+    user_items = [item for item in items_db if item["owner"] == current_user or item["owner"] == "system"]
+
+    return user_items
+
 
 @app.get("/protected")
 def protected(token_data=Depends(verify_token)):
