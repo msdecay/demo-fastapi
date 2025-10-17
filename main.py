@@ -10,7 +10,7 @@ import uuid
 # ---------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------
-SECRET = os.getenv("JWT_SECRET", "dev-secret")   t
+SECRET = os.getenv("JWT_SECRET", "dev-secret")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
@@ -21,7 +21,7 @@ app = FastAPI()
 origins = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
-    "https://your-frontend.vercel.app",  
+    "https://your-frontend.vercel.app",
 ]
 app.add_middleware(
     CORSMiddleware,
