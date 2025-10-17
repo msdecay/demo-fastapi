@@ -1,96 +1,132 @@
-from fastapi import FastAPI, HTTPException, Depends, Header
+from fastapi import FastAPI, HTTPException, Depends, Header, status
 from fastapi.middleware.cors import CORSMiddleware
 from jose import jwt
 from pydantic import BaseModel
-from typing import Optional
-from datetime import datetime, timedelta
+from passlib.context import CryptContext
 import os
-import uuid
+from typing import Optional, Dict, List
+from datetime import datetime, timedelta
+from dotenv import load_dotenv
 
-# ---------------------------------------------------------------------
-# Configuration
-# ---------------------------------------------------------------------
+load_dotenv()
+
 SECRET = os.getenv("JWT_SECRET", "dev-secret")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
-# ---------------------------------------------------------------------
-# FastAPI app setup
-# ---------------------------------------------------------------------
 app = FastAPI()
+
 origins = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
-    "https://your-frontend.vercel.app",
+    "https://demo-fastapi-slc2.onrender.com",
 ]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ---------------------------------------------------------------------
-# Models
-# ---------------------------------------------------------------------
+# === Password hashing setup ===
+pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
+
+# === In-memory databases ===
+users_db: Dict[str, Dict] = {}
+items_db: List[Dict] = [
+    {"id": 1, "name": "apple", "owner": "system"},
+    {"id": 2, "name": "banana", "owner": "system"},
+]
+
+
+# === Models ===
+class RegisterIn(BaseModel):
+    username: str
+    password: str
+
+
 class LoginIn(BaseModel):
     username: str
     password: str
 
-# ---------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------
+
+class ItemIn(BaseModel):
+    name: str
+
+
+# === Auth helpers ===
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
-    """
-    Create a signed JWT that expires after the given delta.
-    Adds iat (issued at) and jti (unique ID) so each token is unique.
-    """
     to_encode = data.copy()
-    now = datetime.utcnow()
-    expire = now + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
-    to_encode.update({
-        "exp": expire,
-        "iat": now,
-        "jti": str(uuid.uuid4())
-    })
+    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+    to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET, algorithm=ALGORITHM)
 
-# ---------------------------------------------------------------------
-# Routes
-# ---------------------------------------------------------------------
+
+def get_password_hash(password: str) -> str:
+    return pwd_context.hash(password)
+
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return pwd_context.verify(plain_password, hashed_password)
+
+
+def verify_token(authorization: Optional[str] = Header(None, alias="Authorization")):
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Missing Authorization header")
+    scheme, _, token = authorization.partition(" ")
+    if scheme.lower() != "bearer":
+        raise HTTPException(status_code=401, detail="Invalid auth scheme")
+    try:
+        return jwt.decode(token, SECRET, algorithms=[ALGORITHM])
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+
+# === Routes ===
 @app.get("/")
 def root():
     return {"message": "Demo FastAPI service running"}
 
-@app.get("/items")
-def get_items():
-    return [{"id": 1, "name": "apple"}, {"id": 2, "name": "banana"}]
+
+@app.post("/register")
+def register(payload: RegisterIn):
+    if payload.username in users_db:
+        raise HTTPException(status_code=400, detail="User already exists")
+    users_db[payload.username] = {"hashed_password": get_password_hash(payload.password)}
+    return {"msg": f"User '{payload.username}' registered successfully"}
+
 
 @app.post("/login")
 def login(payload: LoginIn):
-    """
-    Dummy login: accepts any username/password and returns a JWT.
-    In real apps, verify credentials against a database.
-    """
+    user = users_db.get(payload.username)
+    if not user or not verify_password(payload.password, user["hashed_password"]):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
     token = create_access_token({"sub": payload.username})
     return {"access_token": token, "token_type": "bearer"}
 
-def verify_token(auth_header: Optional[str] = Header(None)):
-    if not auth_header:
-        raise HTTPException(status_code=401, detail="Missing Authorization header")
 
-    scheme, _, token = auth_header.partition(" ")
-    if scheme.lower() != "bearer":
-        raise HTTPException(status_code=401, detail="Invalid auth scheme")
+@app.post("/add_item")
+def add_item(payload: ItemIn, token_data=Depends(verify_token)):
+    owner = token_data.get("sub", "unknown")
+    new_id = len(items_db) + 1
+    new_item = {"id": new_id, "name": payload.name, "owner": owner}
+    items_db.append(new_item)
+    return {"msg": f"Item '{payload.name}' added successfully by {owner}", "item": new_item}
 
-    try:
-        payload = jwt.decode(token, SECRET, algorithms=[ALGORITHM])
-        return payload
-    except Exception:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+# === MODIFIED ROUTE FOR AUTHORIZATION ===
+@app.get("/items")
+def get_items(token_data=Depends(verify_token)):
+    current_user = token_data.get("sub")
+    if not current_user:
+        raise HTTPException(status_code=403, detail="Could not validate credentials")
+
+    user_items = [item for item in items_db if item["owner"] == current_user or item["owner"] == "system"]
+
+    return user_items
 
 @app.get("/protected")
-def protected(payload=Depends(verify_token)):
-    """Protected route that requires a valid Bearer token."""
-    return {"message": f"Hello {payload.get('sub')}, you accessed a protected route!"}
+def protected(token_data=Depends(verify_token)):
+    return {"message": f"Hello {token_data.get('sub')}, you accessed a protected route"}
